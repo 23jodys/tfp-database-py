@@ -1,14 +1,9 @@
 from dotenv import load_dotenv
 import os
-from app.AirTable.tfp_air_table import get_state_reps
+import app.AirTable.tfp_air_table as Airtable
 
-load_dotenv()
 
-AIRTABLE_API_TOKEN = os.getenv("AIRTABLE_API_TOKEN")
-AIRTABLE_BASE = os.getenv("AIRTABLE_BASE")
-
-AIRTABLE_URL = f"https://api.airtable.com/v0/{AIRTABLE_BASE}"
-
-reps = get_state_reps(AIRTABLE_URL, AIRTABLE_API_TOKEN)
-print(len(reps))
-print(reps[:1])
+state_reps = Airtable.get_state_reps()
+negative_bills = Airtable.get_negative_bills()
+print(len(negative_bills))
+print(negative_bills[:1])

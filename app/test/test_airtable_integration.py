@@ -13,9 +13,21 @@ def test_get_state_reps():
     if not INTEGRATION_TEST:
         pytest.skip("Skipping Airtable API calls.")
 
-    reps = Airtable.get_state_reps(AIRTABLE_URL, AIRTABLE_API_TOKEN)
+    reps = Airtable.get_state_reps()
     assert len(reps) > 1000
 
     sample_rep = reps[0]
     assert "Name" in sample_rep["fields"]
     assert len(sample_rep["fields"]["Name"]) > 0
+
+
+def test_get_negative_bills():
+    if not INTEGRATION_TEST:
+        pytest.skip("Skipping Airtable API calls.")
+
+    reps = Airtable.get_negative_bills()
+    assert len(reps) > 100
+
+    sample_rep = reps[0]
+    assert "Case Name" in sample_rep["fields"]
+    assert len(sample_rep["fields"]["Case Name"]) > 0
