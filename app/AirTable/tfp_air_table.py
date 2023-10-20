@@ -63,7 +63,7 @@ def get_table_data(table_key):
             response = get_records_by_page(url, table_id, token, offset)
             more_records = response.json()["records"]
             records.extend(more_records)
-            print(f"Records: {len(records)}")
+            print(f"{table_key} Records: {len(records)}")
 
         return records
 
@@ -76,6 +76,17 @@ def get_state_reps():
     """
     print("Fetching state reps table.")
     records = get_table_data("STATE_REPS_TABLE")
+    return records
+
+
+def get_national_reps():
+    """Convenience function to get all records from the National Reps table.
+
+    Returns:
+        list: List of records translated to Python dicts.
+    """
+    print("Fetching state reps table.")
+    records = get_table_data("NATIONAL_REPS_TABLE")
     return records
 
 
