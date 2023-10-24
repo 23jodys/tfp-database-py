@@ -13,3 +13,13 @@ pip install -r REQUIREMENTS.txt
 ```
 
 Currently tested using `Python 3.10.12`
+
+## Roadmap
+
+1. Get all importers working
+2. Get the TFP api server working (flask)
+3. Deployment
+4. ...
+5. New ways of viewing the data.
+6. Performance improvements
+7.

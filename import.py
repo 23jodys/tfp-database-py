@@ -29,20 +29,14 @@ if engine.dialect.name == "sqlite":
 with Session(engine) as session:
     for at_rep in state_reps:
         try:
-            new_record = dict(
-                id=at_rep["id"],
-                name=at_rep["fields"]["Name"],
-                district=at_rep["fields"]["District"],
-                state=at_rep["fields"]["State"],
-                role=at_rep["fields"]["Role"],
-                created=at_rep["fields"]["Created"],
-                modified=at_rep["fields"]["Last Modified"],
-            )
+            local_rep = Models.Rep()
+            local_rep.from_airtable_record(at_rep)
+            row = local_rep.to_dict()
 
-            stmt = upsert(Models.Rep).values(new_record)
-            stmt = stmt.on_conflict_do_update(
-                index_elements=[Models.Rep.id], set_=new_record
-            )
+            pprint.pprint(row)
+
+            stmt = upsert(Models.Rep).values(row)
+            stmt = stmt.on_conflict_do_update(index_elements=[Models.Rep.id], set_=row)
 
             session.execute(stmt)
             session.commit()
