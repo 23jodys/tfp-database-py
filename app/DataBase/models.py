@@ -71,7 +71,7 @@ class Rep(Base):
         return dict((col, getattr(self, col)) for col in self.__table__.columns.keys())
 
 
-json_example = """{'createdTime': '2023-03-29T22:00:53.000Z',
+rep_json_example = """{'createdTime': '2023-03-29T22:00:53.000Z',
   'fields': {'Capitol Address': '24 Beacon St., Room 166, Boston, MA 02133',
              'Capitol Phone Number': '(617) 722-2692',
              'Created': '2023-03-29T22:00:53.000Z',
@@ -88,3 +88,67 @@ json_example = """{'createdTime': '2023-03-29T22:00:53.000Z',
              'Up For Reelection On': '2022-11-05',
              'Website': 'https://malegislature.gov/Legislators/Profile/WCG1'},
   'id': 'rec02eJ7tvAv6H8LX'}"""
+
+
+class NegativeBills(Base):
+    __tablename__ = "negative_bills"
+    id: Mapped[str] = mapped_column(primary_key=True)
+
+    bill_information_link: Mapped[Optional[str]]
+    case_name: Mapped[str]
+
+    # TODO figure out whether this should be a json field
+    category: Mapped[Optional[str]]
+    expanded_category: Mapped[Optional[str]]
+    created: Mapped[str]
+    last_activity: Mapped[Optional[str]]
+    last_modified: Mapped[Optional[str]]
+    legiscan_id: Mapped[Optional[int]]
+    progress: Mapped[Optional[str]]
+    state: Mapped[str]
+    status: Mapped[Optional[str]]
+    summary: Mapped[Optional[str]]
+
+    def to_dict(self):
+        return dict((col, getattr(self, col)) for col in self.__table__.columns.keys())
+
+
+negative_bills_json_example = """{'createdTime': '2023-04-11T23:16:25.000Z',
+  'fields': {'Bill Information Link': 'https://legiscan.com/AL/bill/HB261/2023',
+             'Case Name': 'AL HB261',
+             'Category': ['Sports'],
+             'Created': '2023-04-11T23:16:25.000Z',
+             'Expanded Category': ['Sports'],
+             'Last Activity Date': '2023-05-24',
+             'Last Modified': '2023-09-25T20:56:30.000Z',
+             'Legiscan Bill ID': 1753574,
+             'Nay Votes': ['rec07tcDNbZB0V9Uq',
+                           'recTly9LNN7KVg19B',
+                           'recC8BwAbWZV7EpPJ',
+                           'recDzxdwSVTtQlL82',
+                           'rec6eVWRueAqzFsmw',
+                           'recktFndwtWb991Mc',
+                           'recIgprrXIoyvf8eK',
+                           'recPbuM6HqRZ2483j'],
+             'Progress': 'Passed',
+             'Sponsors': ['recdlZiMsonXtuWS7'],
+             'State': 'Alabama',
+             'Status': 'Passed',
+             'Summary': 'This bill expands existing legislation in Alabama '
+                        'that restricts sports participation for trans '
+                        'students in K-12 schools to include public 2- and 4- '
+                        'year colleges and universities. The bill claims '
+                        'various advantages to those who were assigned male at '
+                        'birth. The bill prohibits someone the state claims to '
+                        'be a "biological male" from joining a sports team for '
+                        '"females," and vice versa. The bill prohibits '
+                        'complaints to be filed about restrictions to K-12, '
+                        'college, and/or university sports teams, or '
+                        'retaliation towards anyone who files complaints. The '
+                        'bill additionally provides recourse for complaints, '
+                        'such as going to court for injunctive relief, '
+                        'damages, and/or fees.',
+             'Yea Votes': ['recLLmtQiKSgBr31n',
+                            ...
+                           'recfClzN6s7UUAIHF']},
+  'id': 'rec03K3y0yLY6M31u'}"""

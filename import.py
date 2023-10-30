@@ -33,8 +33,6 @@ with Session(engine) as session:
             local_rep.from_airtable_record(at_rep)
             row = local_rep.to_dict()
 
-            pprint.pprint(row)
-
             stmt = upsert(Models.Rep).values(row)
             stmt = stmt.on_conflict_do_update(index_elements=[Models.Rep.id], set_=row)
 
@@ -48,3 +46,6 @@ with Session(engine) as session:
     total = session.query(Models.Rep).count()
 
     print(f"Total: {total}")
+
+
+pprint.pprint(negative_bills[:0])
