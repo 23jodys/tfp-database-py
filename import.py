@@ -5,6 +5,7 @@ import os
 import app.AirTable.tfp_air_table as Airtable
 import pprint
 import app.DataBase.models as Models
+import app.DataBase.db_utils as db_utils
 
 load_dotenv()
 
@@ -26,26 +27,5 @@ if engine.dialect.name == "sqlite":
     from sqlalchemy.dialects.sqlite import insert as upsert
 
 
-with Session(engine) as session:
-    for at_rep in state_reps:
-        try:
-            local_rep = Models.Rep()
-            local_rep.from_airtable_record(at_rep)
-            row = local_rep.to_dict()
-
-            stmt = upsert(Models.Rep).values(row)
-            stmt = stmt.on_conflict_do_update(index_elements=[Models.Rep.id], set_=row)
-
-            session.execute(stmt)
-            session.commit()
-        except KeyError as e:
-            print(f"ERROR: Record missing required field: {e}")
-            pprint.pprint(at_rep)
-            print("\n")
-
-    total = session.query(Models.Rep).count()
-
-    print(f"Total: {total}")
-
-
-pprint.pprint(negative_bills[:0])
+db_utils.bulk_upsert(state_reps, engine, Models.Rep)
+db_utils.bulk_upsert(negative_bills, engine, Models.NegativeBills)

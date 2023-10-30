@@ -1,5 +1,6 @@
 from typing import List
 from typing import Optional
+import json
 from sqlalchemy import ForeignKey
 from sqlalchemy import String
 from sqlalchemy.orm import DeclarativeBase
@@ -44,6 +45,15 @@ class Rep(Base):
     legiscan_id: Mapped[Optional[int]]
 
     def from_airtable_record(self, at_rep):
+        """Imports airtable record mapping airtable fields to SQL columns.
+
+        Args:
+            at_rep (dict): Nested dict representing an airtable data record.
+
+        Returns:
+            NegativeBills: sqlalchemy model instance filled with data.
+        """
+
         self.id = at_rep["id"]
         self.name = at_rep["fields"]["Name"]
         self.district = at_rep["fields"]["District"]
@@ -67,7 +77,14 @@ class Rep(Base):
 
         return self
 
+    # TODO possibly move to Base?
     def to_dict(self):
+        """Export data as plain python dict.
+
+        Returns:
+            dict: Python dict with database-relevant data.
+        """
+
         return dict((col, getattr(self, col)) for col in self.__table__.columns.keys())
 
 
@@ -110,7 +127,37 @@ class NegativeBills(Base):
     summary: Mapped[Optional[str]]
 
     def to_dict(self):
+        """Export data as plain python dict.
+
+        Returns:
+            dict: Python dict with database-relevant data.
+        """
         return dict((col, getattr(self, col)) for col in self.__table__.columns.keys())
+
+    def from_airtable_record(self, at_bill):
+        """Imports airtable record mapping airtable fields to SQL columns.
+
+        Args:
+            at_bill (dict): Nested dict representing an airtable data record.
+
+        Returns:
+            NegativeBills: sqlalchemy model instance filled with data.
+        """
+        self.id = at_bill["id"]
+        self.created = at_bill["createdTime"]
+        self.case_name = at_bill["fields"]["Case Name"]
+        self.category = json.dumps(at_bill["fields"].get("Category"))
+        self.expanded_category = json.dumps(at_bill["fields"].get("Expanded Category"))
+        self.last_activity = at_bill["fields"].get("Last Activity Date")
+        self.last_modified = at_bill["fields"].get("Last Modified")
+        self.legiscan_id = at_bill["fields"].get("Legiscan Bill ID")
+        self.progress = at_bill["fields"].get("Progress")
+        self.state = at_bill["fields"].get("State")
+        self.status = at_bill["fields"].get("Status")
+        self.summary = at_bill["fields"].get("Summary")
+        self.bill_information_link = at_bill["fields"].get("Bill Information Link")
+
+        return self
 
 
 negative_bills_json_example = """{'createdTime': '2023-04-11T23:16:25.000Z',
