@@ -4,6 +4,9 @@ import os
 import app.AirTable.tfp_air_table as Airtable
 import pprint
 import app.DataBase.models as Models
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 
 def bulk_upsert(at_records, engine, table_model):
@@ -53,10 +56,10 @@ def bulk_upsert(at_records, engine, table_model):
             # exception triggered when an at_record is missing
             # a required field.
             except KeyError as e:
-                print(f"ERROR: Record missing required field: {e}")
-                pprint.pprint(at_record)
-                print("\n")
+                logging.error(
+                    f"""ERROR: Record missing required field: {e}\n{pprint.pformat(at_record)}\n"""
+                )
 
         total = session.query(table_model).count()
 
-        print(f"Total: {total}")
+        logging.info(f"Total records inserted: {total}")
