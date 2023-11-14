@@ -5,6 +5,7 @@ import app.AirTable.tfp_air_table as Airtable
 import pprint
 import app.DataBase.models as Models
 import logging
+from sqlalchemy import select
 
 logging.basicConfig(level=logging.INFO)
 
@@ -63,3 +64,23 @@ def bulk_upsert(at_records, engine, table_model):
         total = session.query(table_model).count()
 
         logging.info(f"Total records inserted: {total}")
+
+
+def rep_negative_bill_relation_insert(rep_id, bill_id, rtype, session):
+    join_table = Models.RepsToNegativeBills
+    # check for duplicate record
+    existing_stmt = (
+        select(join_table)
+        .where(join_table.rep_id == rep_id)
+        .where(join_table.negative_bills_id == bill_id)
+        .where(join_table.relation_type == rtype)
+    )
+
+    if len(session.scalars(existing_stmt).all()) == 0:
+        logging.info(f"Adding bill relation: {rep_id}, {bill_id}, {rtype}")
+        new_relation = join_table(
+            rep_id=rep_id, negative_bills_id=bill_id, relation_type=rtype
+        )
+
+        session.add(new_relation)
+        session.commit()

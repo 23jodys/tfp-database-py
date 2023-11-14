@@ -7,10 +7,22 @@ from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import relationship
+from sqlalchemy import Column
+from sqlalchemy import Table
+from sqlalchemy import Integer
 
 
 class Base(DeclarativeBase):
     pass
+
+
+class RepsToNegativeBills(Base):
+    __tablename__ = "reps_to_negative_bills"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    rep_id: Mapped[str]
+    negative_bills_id: Mapped[str]
+    relation_type: Mapped[str]
 
 
 class Rep(Base):
@@ -70,7 +82,9 @@ class Rep(Base):
         self.twitter = at_rep.get("fields").get("Twitter")
         self.capitol_address = at_rep.get("fields").get("Capitol Address")
         self.capitol_phone = at_rep.get("fields").get("Capitol Phone Number")
-        self.district_address = at_rep.get("fields").get("District Address")
+        self.district_address = at_rep.get("fields").get(
+            "District Addrehttps://en.wikipedia.org/wiki/Darko_Suvinss"
+        )
         self.district_phone = at_rep.get("fields").get("District Phone Number")
         self.ftm_eid = at_rep.get("fields").get("Follow the Money EID")
         self.legiscan_id = at_rep.get("fields").get("Legiscan ID")
@@ -174,7 +188,7 @@ negative_bills_json_example = """{'createdTime': '2023-04-11T23:16:25.000Z',
                            'recC8BwAbWZV7EpPJ',
                            'recDzxdwSVTtQlL82',
                            'rec6eVWRueAqzFsmw',
-                           'recktFndwtWb991Mc',
+                           'reckthttps://en.wikipedia.org/wiki/Darko_SuvinFndwtWb991Mc',
                            'recIgprrXIoyvf8eK',
                            'recPbuM6HqRZ2483j'],
              'Progress': 'Passed',

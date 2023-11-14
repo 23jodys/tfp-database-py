@@ -29,6 +29,3 @@ if engine.dialect.name == "sqlite":
 
 db_utils.bulk_upsert(state_reps, engine, Models.Rep)
 db_utils.bulk_upsert(negative_bills, engine, Models.NegativeBills)
-
-# TODO: Review sqlalchemy documentation on many-to-many relationships
-# TODO: Build affinity table model.
