@@ -1,6 +1,10 @@
 from dotenv import load_dotenv
 import os
 from requests_ratelimiter import LimiterSession
+import logging
+
+logging.basicConfig(level=logging.INFO)
+
 
 # The requests_ratelimiter library ensures we stay
 # under the AirTable rate limits (5 per second).
@@ -59,11 +63,10 @@ def get_table_data(table_key):
 
         while "offset" in response.json():
             offset = response.json()["offset"]
-            print(f"offset: {offset}")
             response = get_records_by_page(url, table_id, token, offset)
             more_records = response.json()["records"]
             records.extend(more_records)
-            print(f"{table_key} Records: {len(records)}")
+            logging.info(f"{table_key} Records: {len(records)}")
 
         return records
 
