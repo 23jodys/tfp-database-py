@@ -10,10 +10,42 @@ from sqlalchemy.orm import relationship
 from sqlalchemy import Column
 from sqlalchemy import Table
 from sqlalchemy import Integer
+import hashlib
 
 
 class Base(DeclarativeBase):
-    pass
+    def to_dict(self):
+        """Export data as plain python dict.
+
+        Returns:
+            dict: Python dict with database-relevant data.
+        """
+
+        return dict((col, getattr(self, col)) for col in self.__table__.columns.keys())
+
+    def sha256(self):
+        """
+        Calculate the SHA-256 hash for the object.
+
+        This method calculates the SHA-256 hash based on the sorted key-value pairs of the
+        model object. The resulting hash is returned as a hexadecimal string.
+
+        Note: The 'checksum' key is removed to prevent recursive checksums.
+
+        Returns:
+            str: The SHA-256 hash as a hexadecimal string.
+        """
+
+        self_dict = self.to_dict()
+        # don't recheck the checksum to prevent recursive checksumsums
+        del self_dict["checksum"]
+        sorted_keys = sorted(self_dict.keys())
+
+        return hashlib.sha256(
+            "".join([str(self_dict.get(key, "")) for key in sorted_keys]).encode(
+                "utf-8"
+            )
+        ).hexdigest()
 
 
 class RepsToNegativeBills(Base):
@@ -55,6 +87,7 @@ class Rep(Base):
     # follow the money and legiscan
     ftm_eid: Mapped[Optional[int]]
     legiscan_id: Mapped[Optional[int]]
+    checksum: Mapped[str] = mapped_column(index=True, unique=True)
 
     def from_airtable_record(self, at_rep):
         """Imports airtable record mapping airtable fields to SQL columns.
@@ -82,43 +115,13 @@ class Rep(Base):
         self.twitter = at_rep.get("fields").get("Twitter")
         self.capitol_address = at_rep.get("fields").get("Capitol Address")
         self.capitol_phone = at_rep.get("fields").get("Capitol Phone Number")
-        self.district_address = at_rep.get("fields").get(
-            "District Addrehttps://en.wikipedia.org/wiki/Darko_Suvinss"
-        )
+        self.district_address = at_rep.get("fields").get("District Address")
         self.district_phone = at_rep.get("fields").get("District Phone Number")
         self.ftm_eid = at_rep.get("fields").get("Follow the Money EID")
         self.legiscan_id = at_rep.get("fields").get("Legiscan ID")
+        self.checksum = self.sha256()
 
         return self
-
-    # TODO possibly move to Base?
-    def to_dict(self):
-        """Export data as plain python dict.
-
-        Returns:
-            dict: Python dict with database-relevant data.
-        """
-
-        return dict((col, getattr(self, col)) for col in self.__table__.columns.keys())
-
-
-rep_json_example = """{'createdTime': '2023-03-29T22:00:53.000Z',
-  'fields': {'Capitol Address': '24 Beacon St., Room 166, Boston, MA 02133',
-             'Capitol Phone Number': '(617) 722-2692',
-             'Created': '2023-03-29T22:00:53.000Z',
-             'District': '6th Norfolk',
-             'Email': 'William.Galvin@mahouse.gov',
-             'Facebook': 'https://www.facebook.com/profile.php?id=100057703163724',
-             'Follow the Money EID': 839710,
-             'Last Modified': '2023-07-11T22:15:31.000Z',
-             'Legiscan ID': 2441,
-             'Name': 'William Galvin',
-             'Political Party': 'Democrat',
-             'Role': 'House Representative',
-             'State': 'Massachusetts',
-             'Up For Reelection On': '2022-11-05',
-             'Website': 'https://malegislature.gov/Legislators/Profile/WCG1'},
-  'id': 'rec02eJ7tvAv6H8LX'}"""
 
 
 class NegativeBills(Base):
@@ -140,13 +143,7 @@ class NegativeBills(Base):
     status: Mapped[Optional[str]]
     summary: Mapped[Optional[str]]
 
-    def to_dict(self):
-        """Export data as plain python dict.
-
-        Returns:
-            dict: Python dict with database-relevant data.
-        """
-        return dict((col, getattr(self, col)) for col in self.__table__.columns.keys())
+    checksum: Mapped[str] = mapped_column(index=True, unique=True)
 
     def from_airtable_record(self, at_bill):
         """Imports airtable record mapping airtable fields to SQL columns.
@@ -170,6 +167,8 @@ class NegativeBills(Base):
         self.status = at_bill["fields"].get("Status")
         self.summary = at_bill["fields"].get("Summary")
         self.bill_information_link = at_bill["fields"].get("Bill Information Link")
+
+        self.checksum = self.sha256()
 
         return self
 
@@ -213,3 +212,22 @@ negative_bills_json_example = """{'createdTime': '2023-04-11T23:16:25.000Z',
                             ...
                            'recfClzN6s7UUAIHF']},
   'id': 'rec03K3y0yLY6M31u'}"""
+
+
+rep_json_example = """{'createdTime': '2023-03-29T22:00:53.000Z',
+  'fields': {'Capitol Address': '24 Beacon St., Room 166, Boston, MA 02133',
+             'Capitol Phone Number': '(617) 722-2692',
+             'Created': '2023-03-29T22:00:53.000Z',
+             'District': '6th Norfolk',
+             'Email': 'William.Galvin@mahouse.gov',
+             'Facebook': 'https://www.facebook.com/profile.php?id=100057703163724',
+             'Follow the Money EID': 839710,
+             'Last Modified': '2023-07-11T22:15:31.000Z',
+             'Legiscan ID': 2441,
+             'Name': 'William Galvin',
+             'Political Party': 'Democrat',
+             'Role': 'House Representative',
+             'State': 'Massachusetts',
+             'Up For Reelection On': '2022-11-05',
+             'Website': 'https://malegislature.gov/Legislators/Profile/WCG1'},
+  'id': 'rec02eJ7tvAv6H8LX'}"""
