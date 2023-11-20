@@ -84,3 +84,39 @@ def rep_negative_bill_relation_insert(rep_id, bill_id, rtype, session):
 
         session.add(new_relation)
         session.commit()
+
+
+def get_rep_by_id(id, session):
+    rep_from_database = session.query(Models.Rep).filter(Models.Rep.id == id).first()
+    return rep_from_database
+
+
+def insert_rep(at_rep, session):
+    new_rep = Models.Rep().from_airtable_record(at_rep)
+    session.add(new_rep)
+    session.commit()
+
+
+def update_rep(at_rep, session):
+    new_rep = Models.Rep().from_airtable_record(at_rep)
+    rep_from_db = get_rep_by_id(at_rep["id"], session)
+
+    for key, value in new_rep.to_dict().items():
+        setattr(rep_from_db, key, value)
+
+    session.commit()
+
+
+def insert_or_update_rep(at_rep, session):
+    new_rep = Models.Rep().from_airtable_record(at_rep)
+    id = new_rep.id
+    rep_from_database = session.query(Models.Rep).filter(Models.Rep.id == id).first()
+
+    if rep_from_database is None:
+        insert_rep(at_rep, session)
+        return "insert"
+    elif new_rep.checksum != rep_from_database.checksum:
+        update_rep(at_rep, session)
+        return "update"
+    else:
+        return "skip"
