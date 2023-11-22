@@ -1,6 +1,15 @@
 import os
 import pytest
 import app.DataBase.models as Models
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
+import app.DataBase.db_utils as db_utils
+import pytest
+import app.DataBase.models as Models
+from sqlalchemy.orm import sessionmaker
+import copy
+import logging
+
 
 TEST_REP_MODEL1 = Models.Rep(id="Test1", name="Jane Doe", district="AL5")
 TEST_REP_MODEL2 = Models.Rep(id="Test2", name="Jane Doe", district="AL5")
@@ -25,3 +34,13 @@ def test_to_dict():
     assert test_dict.get("id") == "Test1"
     assert test_dict.get("name") == "Jane Doe"
     assert test_dict.get("district") == "AL5"
+
+
+@pytest.fixture()
+def engine():
+    engine = create_engine("sqlite:///:memory:", echo=False)
+    Models.Base.metadata.create_all(engine)
+
+    yield engine
+
+    Models.Base.metadata.drop_all(bind=engine)

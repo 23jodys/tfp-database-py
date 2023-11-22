@@ -79,6 +79,7 @@ def test_rep_json():
 def engine():
     engine = create_engine("sqlite:///:memory:", echo=False)
     Models.Base.metadata.create_all(engine)
+    Session = sessionmaker(engine)
 
     yield engine
 
@@ -88,13 +89,13 @@ def engine():
 def test_search_rep_by_id_returns_negative(engine):
     with Session(engine) as session:
         rep_id = rep_json_example["id"]
-        assert db_utils.get_rep_by_id(rep_id, session) is None
+        assert Models.Rep.get_by_id(rep_id, session) is None
 
 
 def test_insert_and_search_single_rep(engine):
     with Session(engine) as session:
         db_utils.insert_rep(rep_json_example, session)
-        from_db = db_utils.get_rep_by_id(rep_json_example["id"], session)
+        from_db = Models.Rep.get_by_id(rep_json_example["id"], session)
         assert from_db is not None
         assert from_db.id == "rec02eJ7tvAv6H8LX"
 
@@ -133,5 +134,5 @@ def test_insert_skip_then_update_rep(engine):
         assert skip_status == "skip"
         assert update_status == "update"
 
-        from_db = db_utils.get_rep_by_id(rep_json_example["id"], session)
+        from_db = Models.Rep.get_by_id(rep_json_example["id"], session)
         assert from_db.name == "A Quick Brown Fox"

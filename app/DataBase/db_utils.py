@@ -1,5 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
+from sqlalchemy.orm import sessionmaker
+from dotenv import load_dotenv
 import os
 import app.AirTable.tfp_air_table as Airtable
 import pprint
@@ -10,7 +12,30 @@ from sqlalchemy import select
 logging.basicConfig(level=logging.INFO)
 
 
-def bulk_upsert(at_records, engine, table_model):
+load_dotenv()
+
+if os.getenv("RUN_ENV") == "TESTING":
+    DB_URI = os.getenv("TEST_DB")
+elif os.getenv("RUN_ENV") == "INTEGRATION_TESTING":
+    DB_URI = os.getenv("TEST_DB")
+
+engine = create_engine(DB_URI, echo=False)
+Models.Base.metadata.create_all(engine)
+
+# Create a local alias for the low-level insert query
+# builder. sqlite and postgres support upsert functionality
+# mysql supports upsert using a different syntax.
+# sqlalchemy doesn't have a dialect-agnostic upsert (yet)
+
+# TODO Examine for refactor outside of the function.
+if engine.dialect.name == "sqlite":
+    from sqlalchemy.dialects.sqlite import insert as upsert
+
+
+Session = sessionmaker(engine)
+
+
+def bulk_upsert(at_records, table_model):
     """Do a bulk upsert of a list of airtable records `at_records`
     into database `engine` and `table_model`.
 
@@ -26,16 +51,7 @@ def bulk_upsert(at_records, engine, table_model):
         `db_utils.bulk_upsert(state_reps, engine, Models.Rep)`
     """
 
-    # Create a local alias for the low-level insert query
-    # builder. sqlite and postgres support upsert functionality
-    # mysql supports upsert using a different syntax.
-    # sqlalchemy doesn't have a dialect-agnostic upsert (yet)
-
-    # TODO Examine for refactor outside of the function.
-    if engine.dialect.name == "sqlite":
-        from sqlalchemy.dialects.sqlite import insert as upsert
-
-    with Session(engine) as session:
+    with Session() as session:
         for at_record in at_records:
             try:
                 local_rep = table_model()
@@ -87,7 +103,7 @@ def rep_negative_bill_relation_insert(rep_id, bill_id, rtype, session):
 
 
 def get_rep_by_id(id, session):
-    rep_from_database = session.query(Models.Rep).filter(Models.Rep.id == id).first()
+    rep_from_database = Models.Rep.get_by_id(id, session)
     return rep_from_database
 
 
@@ -98,6 +114,20 @@ def insert_rep(at_rep, session):
 
 
 def update_rep(at_rep, session):
+    """
+    Updates a Representative (Rep) object in the database using data from an Airtable record.
+
+    Args:
+        at_rep (dict): An Airtable record representing a Representative.
+        session (SQLAlchemy Session): An active SQLAlchemy session.
+
+    Returns:
+        None
+
+    Description:
+        This function takes an Airtable record representing a Representative and updates the corresponding
+        Representative object in the database.
+    """
     new_rep = Models.Rep().from_airtable_record(at_rep)
     rep_from_db = get_rep_by_id(at_rep["id"], session)
 
@@ -108,6 +138,22 @@ def update_rep(at_rep, session):
 
 
 def insert_or_update_rep(at_rep, session):
+    """
+    Inserts or updates a `Rep` record in the database, based on comparison with Airtable data.
+
+    Args:
+        at_rep (dict): A dictionary representing a single Airtable record for a `Rep`.
+        session: An active database session object, used for querying and persistence.
+
+    Returns:
+        str: One of "insert", "update", or "skip", indicating the action taken.
+
+        - "insert": Record was created as it didn't exist yet.
+        - "update": Existing record was modified due to Airtable data change.
+        - "skip": No change, Airtable data matches the database record.
+
+    """
+
     new_rep = Models.Rep().from_airtable_record(at_rep)
     id = new_rep.id
     rep_from_database = session.query(Models.Rep).filter(Models.Rep.id == id).first()
@@ -120,3 +166,16 @@ def insert_or_update_rep(at_rep, session):
         return "update"
     else:
         return "skip"
+
+
+def template_decorator(func):
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            print(f"Error occurred: {e}")
+            # You can also log the error or send an email or whatever
+            # you want to do in case of an exception
+            return None  # or some default value
+
+    return wrapper

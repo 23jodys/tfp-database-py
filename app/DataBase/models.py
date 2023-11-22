@@ -47,8 +47,23 @@ class Base(DeclarativeBase):
             )
         ).hexdigest()
 
+    @classmethod
+    def get_by_id(cls, id, session):
+        rep_from_database = session.get(cls, id)
+        return rep_from_database
+
 
 class RepsToNegativeBills(Base):
+    """
+    Representation of a many-to-many relationship between representatives and negative bills.
+
+    Attributes:
+        id (int): Unique identifier for this relationship.
+        rep_id (str): Foreign key referencing the representative who is associated with this relationship.
+        negative_bills_id (str): Foreign key referencing the negative bill that is associated with this relationship.
+        relation_type (str): Type of relationship between the representative and the negative bill (e.g. "sponsor", "yeavote", etc.)
+    """
+
     __tablename__ = "reps_to_negative_bills"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
