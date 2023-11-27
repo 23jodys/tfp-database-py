@@ -12,6 +12,19 @@ from sqlalchemy import select
 logging.basicConfig(level=logging.INFO)
 
 
+def error_logger(func):
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            print(f"Error occurred: {e}")
+            # You can also log the error or send an email or whatever
+            # you want to do in case of an exception
+            return None  # or some default value
+
+    return wrapper
+
+
 load_dotenv()
 
 if os.getenv("RUN_ENV") == "TESTING":
@@ -102,6 +115,7 @@ def bulk_upsert(at_records, table_model):
         logging.info(f"Total records inserted: {total}")
 
 
+@error_logger
 def rep_negative_bill_relation_insert(rep_id, bill_id, rtype, session):
     join_table = Models.RepsToNegativeBills
     # check for duplicate record
@@ -113,13 +127,28 @@ def rep_negative_bill_relation_insert(rep_id, bill_id, rtype, session):
     )
 
     if len(session.scalars(existing_stmt).all()) == 0:
-        logging.info(f"Adding bill relation: {rep_id}, {bill_id}, {rtype}")
+        logging.debug(f"Adding bill relation: {rep_id}, {bill_id}, {rtype}")
         new_relation = join_table(
             rep_id=rep_id, negative_bills_id=bill_id, relation_type=rtype
         )
 
         session.add(new_relation)
-        session.commit()
+
+
+@error_logger
+def rep_build_all_relations(at_rep, session):
+    for yea_vote in at_rep.get("fields").get("Yea Votes", []):
+        rep_negative_bill_relation_insert(at_rep["id"], yea_vote, "yea_vote", session)
+    for nay_vote in at_rep.get("fields").get("Nay Votes", []):
+        rep_negative_bill_relation_insert(at_rep["id"], nay_vote, "nay_vote", session)
+    for sponsorship in at_rep.get("fields").get("Sponsorships", []):
+        rep_negative_bill_relation_insert(
+            at_rep["id"], sponsorship, "sponsorship", session
+        )
+    for contact_bills in at_rep.get("fields").get("Bills to Contact about", []):
+        rep_negative_bill_relation_insert(
+            at_rep["id"], contact_bills, "contact", session
+        )
 
 
 def get_rep_by_id(id, session):
@@ -186,16 +215,3 @@ def insert_or_update_rep(at_rep, session):
         return "update"
     else:
         return "skip"
-
-
-def error_logger(func):
-    def wrapper(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except Exception as e:
-            print(f"Error occurred: {e}")
-            # You can also log the error or send an email or whatever
-            # you want to do in case of an exception
-            return None  # or some default value
-
-    return wrapper

@@ -6,6 +6,7 @@ import app.DataBase.models as Models
 from sqlalchemy.orm import sessionmaker
 import copy
 import logging
+from sqlalchemy import select
 
 
 def test_test():
@@ -136,3 +137,83 @@ def test_insert_skip_then_update_rep(engine):
 
         from_db = Models.Rep.get_by_id(rep_json_example["id"], session)
         assert from_db.name == "A Quick Brown Fox"
+
+
+def test_relation_insert(engine):
+    with Session(engine) as session:
+        db_utils.rep_negative_bill_relation_insert("foo", "bar", "test", session)
+        session.commit()
+        stmt = select(Models.RepsToNegativeBills).where(
+            Models.RepsToNegativeBills.rep_id == "foo"
+        )
+        results = session.execute(stmt).scalars().all()
+        assert results[0].rep_id == "foo"
+        assert results[0].negative_bills_id == "bar"
+        assert results[0].relation_type == "test"
+        assert len(results) == 1
+
+
+def test_insert_of_multiple_relations(engine):
+    rep = copy.deepcopy(rep_json_example)
+    rep["fields"]["Yea Votes"] = ["Yea1", "Yea2"]
+    rep["fields"]["Nay Votes"] = ["Nay", "Nay2"]
+    rep["fields"]["Bills to Contact about"] = ["Contact1", "Contact2"]
+    rep["fields"]["Sponsorships"] = ["Sponsor1", "Sponsor2"]
+
+    with Session(engine) as session:
+        db_utils.rep_build_all_relations(rep, session)
+        session.commit()
+        stmt = select(Models.RepsToNegativeBills).where(
+            Models.RepsToNegativeBills.rep_id == rep["id"]
+        )
+        results = session.execute(stmt).scalars().all()
+        assert len(results) == 8
+
+        stmt = (
+            select(Models.RepsToNegativeBills)
+            .where(Models.RepsToNegativeBills.rep_id == rep["id"])
+            .where(Models.RepsToNegativeBills.relation_type == "yea_vote")
+        )
+        results = session.execute(stmt).scalars().all()
+
+        assert len(results) == 2
+
+        stmt = (
+            select(Models.RepsToNegativeBills)
+            .where(Models.RepsToNegativeBills.rep_id == rep["id"])
+            .where(Models.RepsToNegativeBills.relation_type == "nay_vote")
+        )
+        results = session.execute(stmt).scalars().all()
+
+        assert len(results) == 2
+
+        stmt = (
+            select(Models.RepsToNegativeBills)
+            .where(Models.RepsToNegativeBills.rep_id == rep["id"])
+            .where(Models.RepsToNegativeBills.relation_type == "sponsorship")
+        )
+        results = session.execute(stmt).scalars().all()
+
+        assert len(results) == 2
+
+        stmt = (
+            select(Models.RepsToNegativeBills)
+            .where(Models.RepsToNegativeBills.rep_id == rep["id"])
+            .where(Models.RepsToNegativeBills.relation_type == "contact")
+        )
+        results = session.execute(stmt).scalars().all()
+
+        assert len(results) == 2
+
+
+def test_insert_of_relations_no_relations(engine):
+    """A rep with no relations shouldn't trigger an exception, nor
+    insert records."""
+    with Session(engine) as session:
+        db_utils.rep_build_all_relations(rep_json_example, session)
+        session.commit()
+        stmt = select(Models.RepsToNegativeBills).where(
+            Models.RepsToNegativeBills.rep_id == rep_json_example["id"]
+        )
+        results = session.execute(stmt).scalars().all()
+        assert len(results) == 0
