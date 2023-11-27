@@ -22,15 +22,35 @@ elif os.getenv("RUN_ENV") == "INTEGRATION_TESTING":
 engine = create_engine(DB_URI, echo=False)
 Models.Base.metadata.create_all(engine)
 
-# Create a local alias for the low-level insert query
-# builder. sqlite and postgres support upsert functionality
-# mysql supports upsert using a different syntax.
-# sqlalchemy doesn't have a dialect-agnostic upsert (yet)
 
-# TODO Examine for refactor outside of the function.
-if engine.dialect.name == "sqlite":
-    from sqlalchemy.dialects.sqlite import insert as upsert
+def get_upsert_builder(engine):
+    """
+    Dynamically retrieves the appropriate upsert builder function based on the provided engine's dialect.
 
+    Args:
+        engine: A SQLAlchemy engine object.
+
+    Returns:
+        A function object corresponding to the upsert builder for the dialect.
+
+    Raises:
+        NotImplementedError: If the dialect does not currently support upsert functionality.
+
+    Supported Dialects:
+        - sqlite: Uses `sqlalchemy.dialects.sqlite.insert`
+        - postgresql: Uses `sqlalchemy.dialects.postgresql.insert`
+        - mysql: Not yet implemented (specific syntax required)
+    """
+    if engine.dialect.name == "sqlite":
+        from sqlalchemy.dialects.sqlite import insert as upsert
+    elif engine.dialect.name == "postgresql":
+        from sqlalchemy.dialects.postgresql import insert as upsert
+    else:
+        raise NotImplementedError("Upsert not supported for this dialect")
+    return upsert
+
+
+upsert = get_upsert_builder(engine)
 
 Session = sessionmaker(engine)
 
@@ -168,7 +188,7 @@ def insert_or_update_rep(at_rep, session):
         return "skip"
 
 
-def template_decorator(func):
+def error_logger(func):
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
