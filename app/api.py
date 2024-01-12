@@ -1,31 +1,30 @@
 import os
+import sys
 from collections import defaultdict
 
 from dotenv import load_dotenv
-from flask import Flask, request
+from flask import Flask
 from flask_cors import CORS
 from flask_marshmallow import Marshmallow
 from flask_sqlalchemy import SQLAlchemy
 from flask_restful import Api, Resource
 from marshmallow import ValidationError, fields
 from sqlalchemy import or_, and_
-import tavern
-
 
 from app.DataBase import models as m
-from app.DataBase.models import RepsToNegativeBills
 
 app = Flask(__name__)
 CORS(app)
 
 load_dotenv()
 
-print(f"{os.getcwd()}")
-print(f"{os.getenv('TEST_DB')}")
-
-DB_URI = 'sqlite:///' + os.path.abspath(os.getcwd())  + "/test.db"
-
-print(f"DB_URI: {DB_URI}")
+if os.getenv('RUN_ENV') == 'dev':
+    DB_URI = 'sqlite:///' + os.path.abspath(os.getcwd())  + "/test.db"
+elif  os.getenv('RUN_ENV') == 'prod':
+    DB_URI = os.getenv('DATABASE_URL')
+else:
+    print('FUCK')
+    sys.exit(-1)
 
 app.config["SQLALCHEMY_DATABASE_URI"] = DB_URI
 
