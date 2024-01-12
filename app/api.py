@@ -21,7 +21,7 @@ load_dotenv()
 if os.getenv('RUN_ENV') == 'dev':
     DB_URI = 'sqlite:///' + os.path.abspath(os.getcwd())  + "/test.db"
 elif  os.getenv('RUN_ENV') == 'prod':
-    DB_URI = os.getenv('DATABASE_URL')
+    DB_URI = os.getenv('DATABASE_URL').replace("postgres://", "postgresql://", 1)
 else:
     print('FUCK')
     sys.exit(-1)
