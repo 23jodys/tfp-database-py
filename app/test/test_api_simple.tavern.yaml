@@ -1,0 +1,25 @@
+test_name: Simple integration test with real data
+
+stages:
+  - name: Fetch static data
+    request:
+      url: http://localhost:5000/api/reps/search/brianna
+      method: GET
+    response:
+      strict: False
+      status_code: 200
+      json:
+        -
+          id: !anystr
+          name: Brianna Titone
+          state: Colorado
+          district: '27'
+          affiliation: Democrat
+          role: House Representative
+          email: brianna.titone.house@state.co.us
+          capitolPhoneNumber: 303-866-2962
+          districtPhoneNumber: null
+          twitterUrl: https://twitter.com/BriannaForCO
+          billsSponsored: !anylist
+          billsYeaVotes: !anylist
+          billsNayVotes: !anylist
