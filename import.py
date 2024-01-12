@@ -21,7 +21,7 @@ elif os.getenv("RUN_ENV") == "INTEGRATION_TESTING":
 engine = create_engine(DB_URI, echo=False)
 
 # only runs if models don't currently exist
-Models.Base.metadata.create_all(engine)
+#Models.Base.metadata.create_all(engine)
 Session = sessionmaker(engine)
 
 state_reps = Airtable.get_state_reps()

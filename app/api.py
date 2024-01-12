@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from flask import Flask
 from flask_cors import CORS
 from flask_marshmallow import Marshmallow
+from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from flask_restful import Api, Resource
 from marshmallow import ValidationError, fields
@@ -18,7 +19,7 @@ CORS(app)
 
 load_dotenv()
 
-if os.getenv('RUN_ENV') == 'dev':
+if os.getenv('RUN_ENV', "dev") == 'dev':
     DB_URI = 'sqlite:///' + os.path.abspath(os.getcwd())  + "/test.db"
 elif  os.getenv('RUN_ENV') == 'prod':
     DB_URI = os.getenv('DATABASE_URL').replace("postgres://", "postgresql://", 1)
@@ -29,6 +30,9 @@ else:
 app.config["SQLALCHEMY_DATABASE_URI"] = DB_URI
 
 db = SQLAlchemy(model_class=m.Base)
+
+migrate = Migrate(app, db)
+
 db.init_app(app)
 
 ma = Marshmallow(app)
