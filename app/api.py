@@ -16,7 +16,7 @@ from sqlalchemy import or_, and_
 
 from app.DataBase import models as m
 
-logging.getLogger().setLevel(logging.INFO)
+logging.getLogger().setLevel(logging.DEBUG)
 
 app = Flask(__name__)
 CORS(app)
@@ -88,9 +88,14 @@ class RepSchema(ma.SQLAlchemyAutoSchema):
 
 class RepsResource(Resource):
     def get(self, search_query):
+        logger = logging.getLogger()
         search_query = "%{}%".format(search_query)
-        conditions = [column.like(f'%{search_query}%') for column in [m.Rep.name, m.Rep.state, m.Rep.district, m.Rep.role]]
-        query = db.session.query(m.Rep).filter(or_(*conditions))
+        logger.debug("Search query: '%s'", search_query)
+        print("search query: '{}'".format(search_query))
+        #conditions = [column.like(f'%{search_query}%') for column in [m.Rep.name, m.Rep.state, m.Rep.district, m.Rep.role]]
+        #query = db.session.query(m.Rep).filter(or_(*conditions))
+        query = db.session.query(m.Rep).filter(m.Rep.name.like("{}".format(search_query)))
+        #query = db.session.query(m.Rep)
         reps = query.all()[:100]
 
         bill_types = ["sponsorship", "yea_vote", "nay_vote"]
@@ -98,8 +103,10 @@ class RepsResource(Resource):
         for rep in reps:
             negative_mapping = defaultdict(list)
             for bill_type in bill_types:
+                print("bill_type: '{}'".format(bill_type))
                 bill_ids = db.session.query(m.RepsToNegativeBills).filter(and_(m.RepsToNegativeBills.rep_id == rep.id, m.RepsToNegativeBills.relation_type == bill_type)).all()
                 for bill_id in bill_ids:
+                    print("bill_id: '{}'".format())
                     negative_bill = db.session.query(m.NegativeBills).filter(m.NegativeBills.id == bill_id.negative_bills_id).first()
                     negative_mapping[bill_type].append(negative_bill.case_name)
 

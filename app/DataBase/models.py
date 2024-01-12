@@ -173,6 +173,7 @@ class RepsToNegativeBills(Base):
                 )
                 total["contact_bills"] += 1
 
+        session.commit()
         logger.info(f"Relationships created: yea_vote={total['yea_vote']}, nay_vote={total['nay_vote']}, sponsorship_vote={total['sponsorship_vote']}, contact_bills={total['contact_bills']}")
 
     @classmethod
