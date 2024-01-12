@@ -1,18 +1,22 @@
+import json
+import logging
 import os
-import sys
 from collections import defaultdict
 
+import click
 from dotenv import load_dotenv
 from flask import Flask
 from flask_cors import CORS
 from flask_marshmallow import Marshmallow
 from flask_migrate import Migrate
-from flask_sqlalchemy import SQLAlchemy
 from flask_restful import Api, Resource
+from flask_sqlalchemy import SQLAlchemy
 from marshmallow import ValidationError, fields
 from sqlalchemy import or_, and_
 
 from app.DataBase import models as m
+
+logging.getLogger().setLevel(logging.INFO)
 
 app = Flask(__name__)
 CORS(app)
@@ -21,11 +25,10 @@ load_dotenv()
 
 if os.getenv('RUN_ENV', "dev") == 'dev':
     DB_URI = 'sqlite:///' + os.path.abspath(os.getcwd())  + "/test.db"
-elif  os.getenv('RUN_ENV') == 'prod':
+elif os.getenv('RUN_ENV') == 'prod':
     DB_URI = os.getenv('DATABASE_URL').replace("postgres://", "postgresql://", 1)
 else:
-    print('FUCK')
-    sys.exit(-1)
+    raise Exception("HOLY SHIT")
 
 app.config["SQLALCHEMY_DATABASE_URI"] = DB_URI
 
@@ -110,6 +113,20 @@ class RepsResource(Resource):
 
 
 api.add_resource(RepsResource, '/api/reps/search/<string:search_query>')
+
+
+@app.cli.command("import-airtable-json")
+@click.option("--state-reps-file", type=click.File('rb'), required=True)
+@click.option("--national-reps-file", type=click.File('rb'), required=True)
+@click.option("--negative-bills-file", type=click.File('rb'), required=True)
+def import_airtable_json(state_reps_file, national_reps_file, negative_bills_file):
+    state_reps = json.load(state_reps_file)
+    m.Rep().bulk_upsert(db.session, state_reps)
+
+    negative_bills = json.load(negative_bills_file)
+    m.NegativeBills().bulk_upsert(db.session, negative_bills)
+
+    m.RepsToNegativeBills.rep_build_all_relations(at_reps=state_reps, session=db.session)
 
 if __name__ == '__main__':
     app.run(debug=True)

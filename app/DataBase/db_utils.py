@@ -1,5 +1,4 @@
 from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 import os
@@ -32,8 +31,8 @@ if os.getenv("RUN_ENV") == "TESTING":
 elif os.getenv("RUN_ENV") == "INTEGRATION_TESTING":
     DB_URI = os.getenv("TEST_DB")
 
-engine = create_engine(DB_URI, echo=False)
-Models.Base.metadata.create_all(engine)
+engine = db.engine
+#Models.Base.metadata.create_all(engine)
 
 
 def get_upsert_builder(engine):
@@ -63,12 +62,12 @@ def get_upsert_builder(engine):
     return upsert
 
 
-upsert = get_upsert_builder(engine)
+#upsert = get_upsert_builder(engine)
 
-Session = sessionmaker(engine)
+#Session = sessionmaker(engine)
 
 
-def bulk_upsert(at_records, table_model):
+def bulk_upsert(at_records, table_model, session):
     """Do a bulk upsert of a list of airtable records `at_records`
     into database `engine` and `table_model`.
 
@@ -84,31 +83,30 @@ def bulk_upsert(at_records, table_model):
         `db_utils.bulk_upsert(state_reps, engine, Models.Rep)`
     """
 
-    with Session() as session:
-        for at_record in at_records:
-            try:
-                local_rep = table_model()
-                local_rep.from_airtable_record(at_record)
-                row = local_rep.to_dict()
+    for at_record in at_records:
+        try:
+            local_rep = table_model()
+            local_rep.from_airtable_record(at_record)
+            row = local_rep.to_dict()
 
-                # build a basic insert SQL statement
-                stmt = upsert(table_model).values(row)
+            # build a basic insert SQL statement
+            stmt = get_upsert_builder(db.engine)(session.table_model).values(row)
 
-                # add an SQL clause for what to do if
-                # there's a conflict using table_model.id
-                stmt = stmt.on_conflict_do_update(
-                    index_elements=[table_model.id], set_=row
-                )
+            # add an SQL clause for what to do if
+            # there's a conflict using table_model.id
+            stmt = stmt.on_conflict_do_update(
+                index_elements=[table_model.id], set_=row
+            )
 
-                session.execute(stmt)
-                session.commit()
+            session.execute(stmt)
+            session.commit()
 
-            # exception triggered when an at_record is missing
-            # a required field.
-            except KeyError as e:
-                logging.error(
-                    f"""ERROR: Record missing required field: {e}\n{pprint.pformat(at_record)}\n"""
-                )
+        # exception triggered when an at_record is missing
+        # a required field.
+        except KeyError as e:
+            logging.error(
+                f"""ERROR: Record missing required field: {e}\n{pprint.pformat(at_record)}\n"""
+            )
 
         total = session.query(table_model).count()
 

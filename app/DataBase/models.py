@@ -1,16 +1,18 @@
-from typing import List
+import logging
+import pprint
+from abc import abstractmethod
 from typing import Optional
 import json
-from sqlalchemy import ForeignKey
-from sqlalchemy import String
+
+import sqlalchemy.orm
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
-from sqlalchemy.orm import relationship
 from sqlalchemy import Column
-from sqlalchemy import Table
 from sqlalchemy import Integer
+from sqlalchemy import select
 import hashlib
+
 
 
 class Base(DeclarativeBase):
@@ -52,6 +54,80 @@ class Base(DeclarativeBase):
         rep_from_database = session.get(cls, id)
         return rep_from_database
 
+    @staticmethod
+    def get_upsert_builder(engine):
+        """
+        Dynamically retrieves the appropriate upsert builder function based on the provided engine's dialect.
+
+        Args:
+            engine: A SQLAlchemy engine object.
+
+        Returns:
+            A function object corresponding to the upsert builder for the dialect.
+
+        Raises:
+            NotImplementedError: If the dialect does not currently support upsert functionality.
+
+        Supported Dialects:
+            - sqlite: Uses `sqlalchemy.dialects.sqlite.insert`
+            - postgresql: Uses `sqlalchemy.dialects.postgresql.insert`
+            - mysql: Not yet implemented (specific syntax required)
+        """
+        if engine.dialect.name == "sqlite":
+            from sqlalchemy.dialects.sqlite import insert as upsert
+        elif engine.dialect.name == "postgresql":
+            from sqlalchemy.dialects.postgresql import insert as upsert
+        else:
+            raise NotImplementedError("Upsert not supported for this dialect")
+        return upsert
+
+    def bulk_upsert(self, session: sqlalchemy.orm.Session, at_records):
+        """Do a bulk upsert of a list of airtable records `at_records`
+        into database `engine` and `table_model`.
+
+        Uses the `id` field to detect conflicts. If there is a conflict
+        this function *replaces* the existing record in the sql database.
+
+        Args:
+            session (sqlalchemy.orm): A SQLAlchemy database session
+            at_records (list): list of records obtained from Airtable api.
+
+        Example:
+            `db_utils.bulk_upsert(state_reps, engine, Models.Rep)`
+        """
+
+        for at_record in at_records:
+            try:
+                self.from_airtable_record(at_record)
+                row = self.to_dict()
+
+                # build a basic insert SQL statement
+                upsert = self.get_upsert_builder(session.get_bind())
+                stmt = upsert(self.__class__).values(row)
+
+                # add an SQL clause for what to do if
+                # there's a conflict using table_model.id
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=[self.__class__.id], set_=row
+                )
+
+                session.execute(stmt)
+                session.commit()
+
+            # exception triggered when an at_record is missing
+            # a required field.
+            except KeyError as e:
+                logging.error(
+                    f"""ERROR: Record missing required field: {e}\n{pprint.pformat(at_record)}\n"""
+                )
+
+        total = session.query(self.__class__).count()
+        logging.info(f"Total records inserted: {total}")
+
+    @abstractmethod
+    def from_airtable_record(self, at_record):
+        raise NotImplementedError()
+
 
 class RepsToNegativeBills(Base):
     """
@@ -71,6 +147,51 @@ class RepsToNegativeBills(Base):
     negative_bills_id: Mapped[str]
     relation_type: Mapped[str]
 
+    @classmethod
+    def rep_build_all_relations(cls, at_reps, session):
+        logger = logging.getLogger()
+        total = {}
+        total["yea_vote"] = 0
+        total["nay_vote"] = 0
+        total["sponsorship_vote"] = 0
+        total["contact_bills"] = 0
+        for at_rep in at_reps:
+            for yea_vote in at_rep.get("fields").get("Yea Votes", []):
+                cls.rep_negative_bill_relation_insert(at_rep["id"], yea_vote, "yea_vote", session)
+                total["yea_vote"] += 1
+            for nay_vote in at_rep.get("fields").get("Nay Votes", []):
+                cls.rep_negative_bill_relation_insert(at_rep["id"], nay_vote, "nay_vote", session)
+                total["nay_vote"] += 1
+            for sponsorship in at_rep.get("fields").get("Sponsorships", []):
+                cls.rep_negative_bill_relation_insert(
+                    at_rep["id"], sponsorship, "sponsorship", session
+                )
+                total["sponsorship_vote"] += 1
+            for contact_bills in at_rep.get("fields").get("Bills to Contact about", []):
+                cls.rep_negative_bill_relation_insert(
+                    at_rep["id"], contact_bills, "contact", session
+                )
+                total["contact_bills"] += 1
+
+        logger.info(f"Relationships created: yea_vote={total['yea_vote']}, nay_vote={total['nay_vote']}, sponsorship_vote={total['sponsorship_vote']}, contact_bills={total['contact_bills']}")
+
+    @classmethod
+    def rep_negative_bill_relation_insert(cls, rep_id, bill_id, rtype, session):
+        # check for duplicate record
+        existing_stmt = (
+            select(cls)
+            .where(cls.rep_id == rep_id)
+            .where(cls.negative_bills_id == bill_id)
+            .where(cls.relation_type == rtype)
+        )
+
+        if len(session.scalars(existing_stmt).all()) == 0:
+            logging.debug(f"Adding bill relation: {rep_id}, {bill_id}, {rtype}")
+            new_relation = cls(
+                rep_id=rep_id, negative_bills_id=bill_id, relation_type=rtype
+            )
+
+            session.add(new_relation)
 
 class Rep(Base):
     __tablename__ = "reps"
@@ -137,6 +258,7 @@ class Rep(Base):
         self.checksum = self.sha256()
 
         return self
+
 
 
 class NegativeBills(Base):
