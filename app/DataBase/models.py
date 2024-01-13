@@ -174,7 +174,6 @@ class RepsToNegativeBills(Base):
                 total["contact_bills"] += 1
 
             total_so_far = sum([y for x, y in total.items()])
-            print(total_so_far)
             if total_so_far % 100 == 0:
                 print("Processed {} records".format(total_so_far))
 
