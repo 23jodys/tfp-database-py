@@ -5,3 +5,5 @@ __pycache__/
 memory
 *.db
 .idea/
+/*.json
+at_dump*.zip
