@@ -173,6 +173,12 @@ class RepsToNegativeBills(Base):
                 )
                 total["contact_bills"] += 1
 
+            total_so_far = sum([y for x, y in total.items()])
+            print(total_so_far)
+            if total_so_far % 100 == 0:
+                print("Processed {} records".format(total_so_far))
+
+
         session.commit()
         logger.info(f"Relationships created: yea_vote={total['yea_vote']}, nay_vote={total['nay_vote']}, sponsorship_vote={total['sponsorship_vote']}, contact_bills={total['contact_bills']}")
 

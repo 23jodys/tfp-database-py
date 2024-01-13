@@ -16,7 +16,7 @@ from sqlalchemy import or_, and_
 
 from app.DataBase import models as m
 
-logging.getLogger().setLevel(logging.DEBUG)
+logging.getLogger().setLevel(logging.INFO)
 
 app = Flask(__name__)
 CORS(app)
@@ -90,11 +90,9 @@ class RepsResource(Resource):
     def get(self, search_query):
         logger = logging.getLogger()
         search_query = "%{}%".format(search_query)
-        logger.debug("Search query: '%s'", search_query)
-        print("search query: '{}'".format(search_query))
-        #conditions = [column.like(f'%{search_query}%') for column in [m.Rep.name, m.Rep.state, m.Rep.district, m.Rep.role]]
-        #query = db.session.query(m.Rep).filter(or_(*conditions))
-        query = db.session.query(m.Rep).filter(m.Rep.name.like("{}".format(search_query)))
+        conditions = [column.ilike(f'%{search_query}%') for column in [m.Rep.name, m.Rep.state, m.Rep.district, m.Rep.role]]
+        query = db.session.query(m.Rep).filter(or_(*conditions))
+        #query = db.session.query(m.Rep).filter(m.Rep.name.like("{}".format(search_query)))
         #query = db.session.query(m.Rep)
         reps = query.all()[:100]
 
@@ -123,17 +121,23 @@ api.add_resource(RepsResource, '/api/reps/search/<string:search_query>')
 
 
 @app.cli.command("import-airtable-json")
-@click.option("--state-reps-file", type=click.File('rb'), required=True)
-@click.option("--national-reps-file", type=click.File('rb'), required=True)
-@click.option("--negative-bills-file", type=click.File('rb'), required=True)
-def import_airtable_json(state_reps_file, national_reps_file, negative_bills_file):
-    state_reps = json.load(state_reps_file)
-    m.Rep().bulk_upsert(db.session, state_reps)
+@click.option("--state-reps-file", type=click.File('rb'))
+@click.option("--national-reps-file", type=click.File('rb'))
+@click.option("--negative-bills-file", type=click.File('rb'))
+@click.option("--build-rep-relations")
+def import_airtable_json(state_reps_file, national_reps_file, negative_bills_file, build_rep_relations):
+    state_reps = None
+    if state_reps_file:
+        state_reps = json.load(state_reps_file)
+        m.Rep().bulk_upsert(db.session, state_reps)
 
-    negative_bills = json.load(negative_bills_file)
-    m.NegativeBills().bulk_upsert(db.session, negative_bills)
+    negative_bills = None
+    if negative_bills_file:
+        negative_bills = json.load(negative_bills_file)
+        m.NegativeBills().bulk_upsert(db.session, negative_bills)
 
-    m.RepsToNegativeBills.rep_build_all_relations(at_reps=state_reps, session=db.session)
+    if build_rep_relations:
+        m.RepsToNegativeBills.rep_build_all_relations(at_reps=state_reps, session=db.session)
 
 if __name__ == '__main__':
     app.run(debug=True)
