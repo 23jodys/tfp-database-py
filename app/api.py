@@ -101,10 +101,8 @@ class RepsResource(Resource):
         for rep in reps:
             negative_mapping = defaultdict(list)
             for bill_type in bill_types:
-                print("bill_type: '{}'".format(bill_type))
                 bill_ids = db.session.query(m.RepsToNegativeBills).filter(and_(m.RepsToNegativeBills.rep_id == rep.id, m.RepsToNegativeBills.relation_type == bill_type)).all()
                 for bill_id in bill_ids:
-                    print("bill_id: '{}'".format())
                     negative_bill = db.session.query(m.NegativeBills).filter(m.NegativeBills.id == bill_id.negative_bills_id).first()
                     negative_mapping[bill_type].append(negative_bill.case_name)
 
