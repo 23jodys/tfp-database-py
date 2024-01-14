@@ -1,0 +1,50 @@
+{
+  "name": "tfp-database-py",
+  "scripts": {},
+  "env": {
+    "AIRTABLE_API_TOKEN": {
+      "required": true
+    },
+    "AIRTABLE_BASE": {
+      "required": true
+    },
+    "HEROKU_APP_NAME": {
+      "required": true
+    },
+    "HEROKU_BRANCH": {
+      "required": true
+    },
+    "HEROKU_PR_NUMBER": {
+      "required": true
+    },
+    "NATIONAL_BILLS_TABLE": {
+      "required": true
+    },
+    "NATIONAL_REPS_TABLE": {
+      "required": true
+    },
+    "NEGATIVE_BILLS_TABLE": {
+      "required": true
+    },
+    "POSITIVE_BILLS_TABLE": {
+      "required": true
+    },
+    "STATE_REPS_TABLE": {
+      "required": true
+    }
+  },
+  "formation": {
+    "web": {
+      "quantity": 1
+    }
+  },
+  "addons": [
+    "heroku-postgresql"
+  ],
+  "buildpacks": [
+    {
+      "url": "heroku/python"
+    }
+  ],
+  "stack": "heroku-22"
+}

@@ -5,7 +5,9 @@ __pycache__/
 memory
 *.db
 .idea/
-/*.json
+/state_reps*.json
+/national_reps*.json
+/negative_bills*.json
 at_dump*.zip
 instance/
 /test-results.xml
