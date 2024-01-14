@@ -97,7 +97,7 @@ TODO document how we deploy to Heroku
    3. Postive Bills TODO
 2. Get the TFP api server working (flask) DONE
 3. Migrate the client side stuff to be served by gunicorn or something. Need to merge the existing tfp-widgets repo. TODO
-4. Setup Github CI to run tests
+4. Setup Github CI to run tests DONE
 5. Setup Github + Heroku to deploy branches to a testing environment
 6. Setup Github + Heroku to deploy to production
 5. New ways of viewing the data.
