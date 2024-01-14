@@ -8,3 +8,4 @@ memory
 /*.json
 at_dump*.zip
 instance/
+/test-results.xml
