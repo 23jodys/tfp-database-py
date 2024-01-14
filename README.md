@@ -1,8 +1,12 @@
-# AirTable to SQL Importer for TransFormations Project: Python
+# TFP Widgets v2
 
-An attempt to get momentum on the Widget database.
+- Flask
+- SQLAlchemy
+- SQLAlchemy-Flask ORM
+- Marshmallow
+- Heroku
 
-## Installation/Development
+## Installation
 
 ```
 git clone ...
@@ -12,52 +16,89 @@ source venv/bin/activate
 pip install -r REQUIREMENTS.txt
 ```
 
-Currently tested using `Python 3.10.12`
+## Development
 
-## Database
-
-RUN_ENV=dev|prod
-
-Will use a sqlite database in dev and the heroku database in prod (DATABASE_URL).
-
-### Migrations
+### Run migrations
 
 Uses Flask-Migrate (alembic)
 
 To run migrations
 
 ```
-cd app
-flask --app api db upgrade
+flask --app "tfp_widget:create_app" db upgrade
 ```
 
 To create new migrations after model changes
 
 ```shell
-cd app
-flask --app api db migrate
+flask --app "tfp_widget:create_app" db migrate
 ```
 
-### Importing airtable
+### Airtable dumps
+To develop, populate your `.env` with the following and add
+your airtable credentials.
 
-This is broken into two pieces: creating JSON blobs with all of the data from airtable
-and actually ingesting into the database and creating relationships.
+```python
+# required token for authentication to airtable database
+AIRTABLE_API_TOKEN="<token>"
 
+# This value can be found off the API documentation site:
+# https://airtable.com/appVXvrTCBaSvn2Id/api/docs
+# id string of the database
+AIRTABLE_BASE='appVXvrTCBaSvn2Id'
+
+# a basic testing flag
+# TESTING : use testing environment and database
+# INTEGRATION_TESTING : testing using live servers and apis
+# PRODUCTION : use production environment and database
+RUN_ENV='TESTING'
+
+# in-memory sqlite
+TEST_DB='sqlite:///test.db'
+
+# These values can be found off the API documentation site:
+# https://airtable.com/appVXvrTCBaSvn2Id/api/docs
+STATE_REPS_TABLE="tblcW1C6fiNHBnDaC"
+NEGATIVE_BILLS_TABLE="tbl1tFOQZ1hepzpwa"
+POSITIVE_BILLS_TABLE="tbldhR8N0Odf0z9ug"
+NATIONAL_BILLS_TABLE="tblpupS2QgYmoOtbP"
+NATIONAL_REPS_TABLE="tblK1MGo5pjIzfC6Z"
+```
 
 ```shell
-cd tfp-database-py
-flask --app app/api import-airtable-json --state-reps-file <from above> --national-reps-file <from above> \
---negative-bills-file <from above> --build-rep-relationships TRUE
+flask --app "tfp_widget:create_app" import-airtable-json --state-reps-file <from above> --national-reps-file <from above> \
+--negative-bills-file <from above> --build-rep-relationships 
 ```
 
-#### Production
+### Run in develop mode locally
+
+```shell
+FLASK_DEBUG=True flask --app "tfp_widget:create_app('development')" run
+```
+
+## Database
+
+TODO document databse differences
+
+## CI
+
+TODO document how CI works in github
+
+## Deployment
+
+TODO document how we deploy to Heroku
 
 ## Roadmap
 
 1. Get all importers working
-2. Get the TFP api server working (flask)
-3. Deployment
-4. ...
+   2. State Reps ✔ DONE
+   3. Negative Bills DONE
+   2. National Reps TODO
+   3. Postive Bills TODO
+2. Get the TFP api server working (flask) DONE
+3. Migrate the client side stuff to be served by gunicorn or something. Need to merge the existing tfp-widgets repo. TODO
+4. Setup Github CI to run tests
+5. Setup Github + Heroku to deploy branches to a testing environment
+6. Setup Github + Heroku to deploy to production
 5. New ways of viewing the data.
 6. Performance improvements
-7.

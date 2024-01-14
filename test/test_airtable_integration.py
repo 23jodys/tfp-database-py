@@ -1,6 +1,6 @@
 import os
 import pytest
-import app.AirTable.tfp_air_table as Airtable
+import tfp_widget.airtable.tfp_air_table as Airtable
 
 INTEGRATION_TEST = os.getenv("RUN_ENV") == "INTEGRATION_TESTING"
 AIRTABLE_API_TOKEN = os.getenv("AIRTABLE_API_TOKEN")

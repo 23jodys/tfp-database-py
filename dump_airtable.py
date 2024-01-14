@@ -1,7 +1,7 @@
 import json
 
 from dotenv import load_dotenv
-import app.AirTable.tfp_air_table as Airtable
+import tfp_widget.airtable.tfp_air_table as Airtable
 import logging
 import time
 

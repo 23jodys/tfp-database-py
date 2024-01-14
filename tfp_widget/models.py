@@ -4,8 +4,6 @@ from abc import abstractmethod
 from typing import Optional
 import json
 
-import sqlalchemy.orm
-from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
 from sqlalchemy import Column
@@ -13,9 +11,12 @@ from sqlalchemy import Integer
 from sqlalchemy import select
 import hashlib
 
+from .database import db
+
+LOGGER = logging.getLogger()
 
 
-class Base(DeclarativeBase):
+class Base:
     def to_dict(self):
         """Export data as plain python dict.
 
@@ -39,7 +40,7 @@ class Base(DeclarativeBase):
         """
 
         self_dict = self.to_dict()
-        # don't recheck the checksum to prevent recursive checksumsums
+        # don't recheck the checksum to prevent recursive checksums
         del self_dict["checksum"]
         sorted_keys = sorted(self_dict.keys())
 
@@ -50,8 +51,8 @@ class Base(DeclarativeBase):
         ).hexdigest()
 
     @classmethod
-    def get_by_id(cls, id, session):
-        rep_from_database = session.get(cls, id)
+    def get_by_id(cls, id_to_find, session):
+        rep_from_database = session.get(cls, id_to_find)
         return rep_from_database
 
     @staticmethod
@@ -81,55 +82,82 @@ class Base(DeclarativeBase):
             raise NotImplementedError("Upsert not supported for this dialect")
         return upsert
 
-    def bulk_upsert(self, session: sqlalchemy.orm.Session, at_records):
-        """Do a bulk upsert of a list of airtable records `at_records`
-        into database `engine` and `table_model`.
+    @classmethod
+    def upsert(cls, at_record):
+        """
+        Upsert a record into the database.
 
-        Uses the `id` field to detect conflicts. If there is a conflict
+        Args:
+            cls (class): The class representing the database model.
+            at_record (dict): The Airtable record to upsert.
+
+        Returns:
+            None
+
+        Note:
+            This method checks if the record already exists in the database. If it does,
+            it updates the existing record with the data from the Airtable record. If the
+            sha256 hash of the existing record is different from the new record, the existing
+            record is updated. If the sha256 hashes match, the record is skipped. If the record
+            does not exist in the database, a new instance is created and inserted.
+
+            Does not commit, caller expected to commit.
+        """
+        found_instance = cls.query.get(at_record["id"])
+        new_instance = cls.from_airtable_record(at_record)
+
+        if found_instance:
+            if found_instance.sha256 != new_instance.sha256:
+                # Update the
+                found_instance.from_airtable_record(at_record, found_instance)
+                db.session.add(found_instance)
+                LOGGER.debug("Upserted instance: {}".format(found_instance))
+                return found_instance
+            else:
+                LOGGER.debug("Skipped instance: {}".format(new_instance))
+                return found_instance
+        else:
+            db.session.add(new_instance)
+            LOGGER.debug("Inserted instance: {}".format(new_instance))
+            return new_instance
+
+    @classmethod
+    def bulk_upsert(cls, at_records):
+        """Do a bulk upsert of a list of airtable records `at_records`
+
+        Uses the `id` and sha256 field to detect conflicts. If there is a conflict
         this function *replaces* the existing record in the sql database.
 
         Args:
-            session (sqlalchemy.orm): A SQLAlchemy database session
             at_records (list): list of records obtained from Airtable api.
 
         Example:
-            `db_utils.bulk_upsert(state_reps, engine, Models.Rep)`
+            `db_utils.bulk_upsert(state_reps)`
         """
+
+        total_count = 0
 
         for at_record in at_records:
             try:
-                self.from_airtable_record(at_record)
-                row = self.to_dict()
-
-                # build a basic insert SQL statement
-                upsert = self.get_upsert_builder(session.get_bind())
-                stmt = upsert(self.__class__).values(row)
-
-                # add an SQL clause for what to do if
-                # there's a conflict using table_model.id
-                stmt = stmt.on_conflict_do_update(
-                    index_elements=[self.__class__.id], set_=row
-                )
-
-                session.execute(stmt)
-                session.commit()
-
-            # exception triggered when an at_record is missing
-            # a required field.
+                cls.upsert(at_record=at_record)
+                total_count += 1
             except KeyError as e:
                 logging.error(
                     f"""ERROR: Record missing required field: {e}\n{pprint.pformat(at_record)}\n"""
                 )
+            if total_count % 100 == 0:
+                logging.info(f"Total records inserted into {cls.__name__}: {total_count}")
 
-        total = session.query(self.__class__).count()
-        logging.info(f"Total records inserted: {total}")
+        logging.info(f"Total records inserted into {cls.__name__}: {total_count}")
+
+        db.session.commit()
 
     @abstractmethod
     def from_airtable_record(self, at_record):
         raise NotImplementedError()
 
 
-class RepsToNegativeBills(Base):
+class RepsToNegativeBills(db.Model, Base):
     """
     Representation of a many-to-many relationship between representatives and negative bills.
 
@@ -137,7 +165,8 @@ class RepsToNegativeBills(Base):
         id (int): Unique identifier for this relationship.
         rep_id (str): Foreign key referencing the representative who is associated with this relationship.
         negative_bills_id (str): Foreign key referencing the negative bill that is associated with this relationship.
-        relation_type (str): Type of relationship between the representative and the negative bill (e.g. "sponsor", "yeavote", etc.)
+        relation_type (str): Type of relationship between the representative and the negative bill (e.g. "sponsor",
+        "yeavote", etc.)
     """
 
     __tablename__ = "reps_to_negative_bills"
@@ -150,11 +179,8 @@ class RepsToNegativeBills(Base):
     @classmethod
     def rep_build_all_relations(cls, at_reps, session):
         logger = logging.getLogger()
-        total = {}
-        total["yea_vote"] = 0
-        total["nay_vote"] = 0
-        total["sponsorship_vote"] = 0
-        total["contact_bills"] = 0
+        total = {"yea_vote": 0, "nay_vote": 0, "sponsorship_vote": 0, "contact_bills": 0}
+        last_total = 0
         for at_rep in at_reps:
             for yea_vote in at_rep.get("fields").get("Yea Votes", []):
                 cls.rep_negative_bill_relation_insert(at_rep["id"], yea_vote, "yea_vote", session)
@@ -174,12 +200,19 @@ class RepsToNegativeBills(Base):
                 total["contact_bills"] += 1
 
             total_so_far = sum([y for x, y in total.items()])
-            if total_so_far % 100 == 0:
-                print("Processed {} records".format(total_so_far))
 
+            if total_so_far - last_total > 500:
+                LOGGER.info(f"Total records inserted into {cls.__name__}: {total_so_far}")
+                last_total = total_so_far
 
-        session.commit()
-        logger.info(f"Relationships created: yea_vote={total['yea_vote']}, nay_vote={total['nay_vote']}, sponsorship_vote={total['sponsorship_vote']}, contact_bills={total['contact_bills']}")
+        db.session.commit()
+        logger.info(
+            f"Relationships created: yea_vote={total['yea_vote']}, nay_vote={total['nay_vote']}, \
+            sponsorship_vote={total['sponsorship_vote']}, contact_bills={total['contact_bills']}")
+
+    @classmethod
+    def from_airtable_record(cls, at_record):
+        raise NotImplementedError()
 
     @classmethod
     def rep_negative_bill_relation_insert(cls, rep_id, bill_id, rtype, session):
@@ -193,13 +226,15 @@ class RepsToNegativeBills(Base):
 
         if len(session.scalars(existing_stmt).all()) == 0:
             logging.debug(f"Adding bill relation: {rep_id}, {bill_id}, {rtype}")
-            new_relation = cls(
-                rep_id=rep_id, negative_bills_id=bill_id, relation_type=rtype
-            )
+            new_relation = cls()
+            new_relation.rep_id = rep_id
+            new_relation.negative_bills_id = bill_id
+            new_relation.relation_type = rtype
 
             session.add(new_relation)
 
-class Rep(Base):
+
+class Rep(db.Model, Base):
     __tablename__ = "reps"
 
     id: Mapped[str] = mapped_column(primary_key=True)
@@ -231,43 +266,48 @@ class Rep(Base):
     legiscan_id: Mapped[Optional[int]]
     checksum: Mapped[str] = mapped_column(index=True, unique=True)
 
-    def from_airtable_record(self, at_rep):
+    @classmethod
+    def from_airtable_record(cls, at_record, existing_instance=None):
         """Imports airtable record mapping airtable fields to SQL columns.
 
         Args:
-            at_rep (dict): Nested dict representing an airtable data record.
+            at_record (dict): Nested dict representing an airtable data record.
+            existing_instance: Optional existing instance to update when doing upserts
 
         Returns:
             NegativeBills: sqlalchemy model instance filled with data.
         """
+        if not existing_instance:
+            new_instance = cls()
+        else:
+            new_instance = existing_instance
+        new_instance.id = at_record["id"]
+        new_instance.name = at_record["fields"]["Name"]
+        new_instance.district = at_record["fields"]["District"]
+        new_instance.state = at_record["fields"]["State"]
+        new_instance.role = at_record["fields"]["Role"]
+        new_instance.created = at_record["fields"]["Created"]
+        new_instance.modified = at_record["fields"]["Last Modified"]
 
-        self.id = at_rep["id"]
-        self.name = at_rep["fields"]["Name"]
-        self.district = at_rep["fields"]["District"]
-        self.state = at_rep["fields"]["State"]
-        self.role = at_rep["fields"]["Role"]
-        self.created = at_rep["fields"]["Created"]
-        self.modified = at_rep["fields"]["Last Modified"]
+        new_instance.political_party = at_record.get("fields").get("Political Party")
+        new_instance.reelection_date = at_record.get("fields").get("Up For Reelection On")
+        new_instance.website = at_record.get("fields").get("Website")
+        new_instance.email = at_record.get("fields").get("Email")
+        new_instance.facebook = at_record.get("fields").get("Facebook")
+        new_instance.twitter = at_record.get("fields").get("Twitter")
+        new_instance.capitol_address = at_record.get("fields").get("Capitol Address")
+        new_instance.capitol_phone = at_record.get("fields").get("Capitol Phone Number")
+        new_instance.district_address = at_record.get("fields").get("District Address")
+        new_instance.district_phone = at_record.get("fields").get("District Phone Number")
+        new_instance.ftm_eid = at_record.get("fields").get("Follow the Money EID")
+        new_instance.legiscan_id = at_record.get("fields").get("Legiscan ID")
+        new_instance.checksum = new_instance.sha256()
 
-        self.political_party = at_rep.get("fields").get("Political Party")
-        self.reelection_date = at_rep.get("fields").get("Up For Reelection On")
-        self.website = at_rep.get("fields").get("Website")
-        self.email = at_rep.get("fields").get("Email")
-        self.facebook = at_rep.get("fields").get("Facebook")
-        self.twitter = at_rep.get("fields").get("Twitter")
-        self.capitol_address = at_rep.get("fields").get("Capitol Address")
-        self.capitol_phone = at_rep.get("fields").get("Capitol Phone Number")
-        self.district_address = at_rep.get("fields").get("District Address")
-        self.district_phone = at_rep.get("fields").get("District Phone Number")
-        self.ftm_eid = at_rep.get("fields").get("Follow the Money EID")
-        self.legiscan_id = at_rep.get("fields").get("Legiscan ID")
-        self.checksum = self.sha256()
-
-        return self
+        # Do not commit the instance inside this function.
+        return new_instance
 
 
-
-class NegativeBills(Base):
+class NegativeBills(db.Model, Base):
     __tablename__ = "negative_bills"
     id: Mapped[str] = mapped_column(primary_key=True)
 
@@ -288,32 +328,38 @@ class NegativeBills(Base):
 
     checksum: Mapped[str] = mapped_column(index=True, unique=True)
 
-    def from_airtable_record(self, at_bill):
+    @classmethod
+    def from_airtable_record(cls, at_record, existing_instance=None):
         """Imports airtable record mapping airtable fields to SQL columns.
 
         Args:
-            at_bill (dict): Nested dict representing an airtable data record.
+            at_record (dict): Nested dict representing an airtable data record.
+            existing_instance: Optional existing instance to modify when doing upsert
 
         Returns:
             NegativeBills: sqlalchemy model instance filled with data.
         """
-        self.id = at_bill["id"]
-        self.created = at_bill["createdTime"]
-        self.case_name = at_bill["fields"]["Case Name"]
-        self.category = json.dumps(at_bill["fields"].get("Category"))
-        self.expanded_category = json.dumps(at_bill["fields"].get("Expanded Category"))
-        self.last_activity = at_bill["fields"].get("Last Activity Date")
-        self.last_modified = at_bill["fields"].get("Last Modified")
-        self.legiscan_id = at_bill["fields"].get("Legiscan Bill ID")
-        self.progress = at_bill["fields"].get("Progress")
-        self.state = at_bill["fields"].get("State")
-        self.status = at_bill["fields"].get("Status")
-        self.summary = at_bill["fields"].get("Summary")
-        self.bill_information_link = at_bill["fields"].get("Bill Information Link")
+        if not existing_instance:
+            new_instance = cls()
+        else:
+            new_instance = existing_instance
+        new_instance.id = at_record["id"]
+        new_instance.created = at_record["createdTime"]
+        new_instance.case_name = at_record["fields"]["Case Name"]
+        new_instance.category = json.dumps(at_record["fields"].get("Category"))
+        new_instance.expanded_category = json.dumps(at_record["fields"].get("Expanded Category"))
+        new_instance.last_activity = at_record["fields"].get("Last Activity Date")
+        new_instance.last_modified = at_record["fields"].get("Last Modified")
+        new_instance.legiscan_id = at_record["fields"].get("Legiscan Bill ID")
+        new_instance.progress = at_record["fields"].get("Progress")
+        new_instance.state = at_record["fields"].get("State")
+        new_instance.status = at_record["fields"].get("Status")
+        new_instance.summary = at_record["fields"].get("Summary")
+        new_instance.bill_information_link = at_record["fields"].get("Bill Information Link")
 
-        self.checksum = self.sha256()
+        new_instance.checksum = new_instance.sha256()
 
-        return self
+        return new_instance
 
 
 negative_bills_json_example = """{'createdTime': '2023-04-11T23:16:25.000Z',
@@ -355,7 +401,6 @@ negative_bills_json_example = """{'createdTime': '2023-04-11T23:16:25.000Z',
                             ...
                            'recfClzN6s7UUAIHF']},
   'id': 'rec03K3y0yLY6M31u'}"""
-
 
 rep_json_example = """{'createdTime': '2023-03-29T22:00:53.000Z',
   'fields': {'Capitol Address': '24 Beacon St., Room 166, Boston, MA 02133',

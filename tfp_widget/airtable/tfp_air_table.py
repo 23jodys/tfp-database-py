@@ -7,9 +7,9 @@ logging.basicConfig(level=logging.INFO)
 
 
 # The requests_ratelimiter library ensures we stay
-# under the AirTable rate limits (5 per second).
+# under the airtable rate limits (5 per second).
 # Anything you use requests for to get information from
-# AirTable should go through this session object instead.
+# airtable should go through this session object instead.
 session = LimiterSession(per_second=5)
 
 # Load environment variables from .env
@@ -17,14 +17,14 @@ load_dotenv()
 
 
 def get_records_by_page(url, table_id, token, offset=None):
-    """Get a single page of records from AirTable. If offset is provided, this will
+    """Get a single page of records from airtable. If offset is provided, this will
     return the page identified by the offset string.
 
     Args:
-        url (string): URL to the AirTable API endpoint, with the ID of the base/view appended.
-        table_id (string): AirTable table identifier. Probably looks like `tblcW1C6fiNHBnDaC`
-        token (string): Authentication token for AirTable API.
-        offset (string, optional): Offset string provided by AirTable in the previous page of data. Defaults to None.
+        url (string): URL to the airtable API endpoint, with the ID of the base/view appended.
+        table_id (string): airtable table identifier. Probably looks like `tblcW1C6fiNHBnDaC`
+        token (string): Authentication token for airtable API.
+        offset (string, optional): Offset string provided by airtable in the previous page of data. Defaults to None.
 
     Returns:
         list: List of records translated to Python dicts.
@@ -46,7 +46,7 @@ def get_records_by_page(url, table_id, token, offset=None):
 
 
 def get_table_data(table_key):
-    """Get all records in an AirTable table, repeatedly requesting page after page.
+    """Get all records in an airtable table, repeatedly requesting page after page.
 
     Args:
         table_key (string): Environment variable *key* to look up the table id.

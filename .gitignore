@@ -7,3 +7,4 @@ memory
 .idea/
 /*.json
 at_dump*.zip
+instance/
