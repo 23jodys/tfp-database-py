@@ -1,1 +1,1 @@
-web: gunicorn tfp_widget:create_app("production")
+web: gunicorn "tfp_widget:create_app('production')"
