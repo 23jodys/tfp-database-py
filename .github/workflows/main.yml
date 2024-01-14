@@ -45,10 +45,10 @@ jobs:
             const data = fs.readFileSync('test-results.xml', 'utf8');
             const results = data.match(/errors="(\d+)" failures="(\d+)" skipped="(\d+)" tests="(\d+)"/)
             const comment = `:test_tube: **Test Report**
-                              - Errors: ${results[0]}
-                              - Failures: ${results[1]}
-                              - Skipped: ${results[2]}
-                              - Tests: ${results[3]}`
+                              - Errors: ${results[1]}
+                              - Failures: ${results[2]}
+                              - Skipped: ${results[3]}
+                              - Tests: ${results[4]}`
             github.issues.createComment({
                 issue_number: context.issue.number,
                 owner: context.repo.owner,
