@@ -42,6 +42,8 @@ config_by_name = dict(
 
 
 def create_app(config_name="development"):
+    for key, value in os.environ.items():
+        print(f"{key}={value}")
     app = Flask(__name__)
     app.config.from_object(config_by_name[config_name])
     CORS(app)
