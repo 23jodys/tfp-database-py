@@ -1,6 +1,5 @@
 import json
 
-from tfp_widget import views, create_app
 from tfp_widget.database import db
 from tfp_widget.models import Rep, NegativeBills, RepsToNegativeBills
 

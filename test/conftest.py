@@ -1,4 +1,5 @@
 import pytest
+
 from tfp_widget import create_app
 from tfp_widget.database import db
 
