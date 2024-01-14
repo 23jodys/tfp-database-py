@@ -1,5 +1,0 @@
-{
-  "addons": [
-    {"plan": "heroku-postgresql:basic", "as": "STAGING_DATABASE"}
-  ]
-}
