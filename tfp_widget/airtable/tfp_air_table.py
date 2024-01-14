@@ -70,7 +70,7 @@ def get_table_data(table_key):
 
         return records
     else:
-        raise ConnectionError(f"Response code is not 200, got {response.status_code} and {response.data}")
+        raise ConnectionError(f"Response code is not 200, got {response.status_code} and {response.json()}")
 
 
 def get_state_reps():
