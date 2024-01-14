@@ -19,4 +19,38 @@ jobs:
 
       - name: Run tests
         run: |
-          PYTHONPATH=./ pytest
+          PYTHONPATH=./ pytest --junitxml=test-results.xml
+
+      - name: Archive test results
+        uses: actions/upload-artifact@v2
+        with:
+          name: test-results
+          path: test-results.xml
+
+  comment:
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Download test results
+        uses: actions/download-artifact@v2
+        with:
+          name: test-results
+
+      - name: Comment PR
+        uses: actions/github-script@v3.1
+        with:
+          script: |
+            const fs = require('fs');
+            const data = fs.readFileSync('test-results.xml', 'utf8');
+            const results = data.match(/tests="(\d+)" failures="(\d+)" errors="(\d+)"/)
+            const comment = `:test_tube: **Test Report**
+                              - Tests: ${results[1]}
+                              - Failures: ${results[2]}
+                              - Errors: ${results[3]}`
+            github.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+            })
