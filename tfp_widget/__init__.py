@@ -45,8 +45,8 @@ def create_app(config_name="development"):
     app = Flask(__name__)
     app.config.from_object(config_by_name[config_name])
     CORS(app)
-    if app.debug:
-        logging.basicConfig(level=logging.INFO)
+    #if app.debug:
+    logging.basicConfig(level=logging.INFO)
 
     Migrate(app, database.db)
 
