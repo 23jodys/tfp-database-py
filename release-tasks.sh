@@ -16,5 +16,4 @@ ls -la *.json
 flask --app "tfp_widget:create_app('production')" import-airtable-json \
   --state-reps-file state_reps*.json \
   --national-reps-file national_reps*.json \
-  --negative-bills-file negative_bills*.json \
-  --build-rep-nb-relations
+  --negative-bills-file negative_bills*.json
